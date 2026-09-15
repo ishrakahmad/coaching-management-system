@@ -1,4 +1,4 @@
-import { Entity, Column, OneToOne, JoinColumn, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, Column, OneToOne, JoinColumn, ManyToOne, ManyToMany, JoinTable, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Institute } from '../../institutes/entities/institute.entity';
@@ -12,6 +12,8 @@ export enum StudentStatus {
 }
 
 @Entity('students')
+// Student IDs are unique per institute, not globally: every institute has its own STD-2026-0001.
+@Index(['instituteId', 'studentId'], { unique: true })
 export class Student extends BaseEntity {
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
@@ -27,7 +29,7 @@ export class Student extends BaseEntity {
   @Column({ name: 'institute_id' })
   instituteId: string;
 
-  @Column({ unique: true })
+  @Column()
   studentId: string; // human-readable admission number, e.g. "STD-2026-0001"
 
   @Column({ nullable: true })

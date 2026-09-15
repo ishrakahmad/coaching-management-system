@@ -1,4 +1,4 @@
-# Coaching Management System — Phase 1
+# Coaching Management System — Phase 1.5
 
 Multi-institute-ready Coaching Management System. Phase 1 scope: **Auth (JWT + Role-based)**,
 **Institutes**, **Users**, **Teachers**, **Subjects**, **Batches**, **Students**.
@@ -75,14 +75,17 @@ npm run dev
 
 | Method | Endpoint            | বর্ণনা                                                     | Role                            |
 |--------|----------------------|--------------------------------------------------------------|----------------------------------|
-| POST   | `/auth/register`     | নতুন user register                                          | Public (Phase 2 এ restrict হবে) |
 | POST   | `/auth/login`         | Login → access + refresh token                                | Public                           |
+| POST   | `/auth/refresh`        | Refresh token দিয়ে নতুন token pair (পুরোনোটা বাতিল)             | Public (valid refresh token)     |
+| POST   | `/auth/logout`         | Refresh token বাতিল                                           | Public (valid refresh token)     |
 | GET    | `/auth/me`             | Current logged-in user                                        | Authenticated                    |
 | GET    | `/institutes`         | সব institute (SaaS mode এর জন্য)                             | Super Admin                      |
 | GET/POST | `/subjects`          | Institute-এর সব subject / নতুন subject                        | Authenticated / Admin-Manager    |
 | GET/POST | `/teachers`          | সব teacher / নতুন teacher (User + Teacher profile তৈরি করে)   | Authenticated / Admin-Manager    |
 | GET/POST | `/batches`           | সব batch / নতুন batch                                         | Authenticated / Admin-Manager    |
 | GET/POST | `/students`          | সব student / নতুন student admission (auto studentId generate) | Authenticated / Admin-Manager    |
+
+Subjects, Teachers, Batches, Students — প্রতিটাতে `GET/PATCH/DELETE /:id` আছে। PATCH শুধু institute admin/manager, DELETE শুধু institute admin। Super admin সব role-check পার হয়।
 
 ## Design Decisions
 
@@ -91,6 +94,21 @@ npm run dev
 - **Soft delete**: সব entity `deletedAt` রাখে (TypeORM `softRemove`), তাই কোনো data সরাসরি হারায় না।
 - **Auto-generated Student ID**: `STD-<year>-<seq>` ফরম্যাটে, প্রতিটা institute-এর জন্য আলাদাভাবে।
 - **Role-based guards**: `@Roles()` decorator + `RolesGuard` দিয়ে endpoint-level access control।
+
+## Phase 1.5 — Security & data integrity fixes
+
+- **Password hash leak বন্ধ**: global `ClassSerializerInterceptor`, তাই `@Exclude()` field response-এ যায় না।
+- **Public `/auth/register` সরানো হয়েছে**: user তৈরি হয় শুধু admin-এর মাধ্যমে (teachers/students endpoint)।
+- **Tenant isolation**: প্রতিটা read/update/delete query `instituteId` দিয়ে scoped। অন্য institute-এর subject/batch/teacher ID পাঠালে 400।
+- **Update DTO**: প্রতিটা PATCH-এর নিজস্ব DTO; `instituteId`, `userId` বা অজানা field পাঠালে 400।
+- **Student ID**: `id_counters` table থেকে atomic sequence, প্রতি institute ও প্রতি বছরে আলাদা, delete-এর পরেও কখনো reuse হয় না। Unique constraint এখন `(institute_id, studentId)`।
+- **Transactions**: User + Teacher/Student একসাথে save হয়; মাঝপথে fail করলে কিছুই থাকে না। Delete করলে linked user-ও soft delete হয় (login বন্ধ)।
+- **Refresh token rotation**: `refresh_tokens` table-এ শুধু SHA-256 hash থাকে। প্রতিবার refresh-এ নতুন token, পুরোনোটা বাতিল; বাতিল token আবার ব্যবহার হলে ওই user-এর সব session বন্ধ হয়। একাধিক device-এ আলাদা session চলে।
+- **Frontend**: 401 পেলে একবার refresh করে request আবার পাঠায় (একসাথে অনেক request fail করলেও refresh একবারই হয়)। Logout server-এ token বাতিল করে।
+- **ছোট fix**: decimal column (fee, salary) এখন number হিসেবে আসে; database error (duplicate, invalid UUID) সঠিক 409/400 দেয়; `SUPER_ADMIN` সব role check পার হয়; production-এ দুর্বল JWT secret থাকলে app চালু হয় না; `CORS_ORIGIN` env; `dotenv` dependency; frontend-এ `vite-env.d.ts` (এটা ছাড়া `npm run build` fail করত)।
+
+> **Existing dev database**: `synchronize` নতুন table (`refresh_tokens`, `id_counters`) আর নতুন index নিজেই বানাবে। আগে issue হওয়া Student ID-এর পর থেকে counter শুরু হয়, তাই পুরোনো data-র সাথে collision হবে না।
+> আগে login করা user-দের একবার logout করে আবার login করতে হবে (পুরোনো refresh token-এর কোনো DB record নেই)।
 
 ## Next Phases (এখনো বাকি)
 

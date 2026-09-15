@@ -1,4 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
+import { decimalTransformer } from '../../common/transformers/decimal.transformer';
 import { BaseEntity } from '../../common/base.entity';
 import { Institute } from '../../institutes/entities/institute.entity';
 import { Subject } from '../../subjects/entities/subject.entity';
@@ -12,7 +13,7 @@ export class Batch extends BaseEntity {
   @Column({ nullable: true })
   session: string; // e.g. "2026-2027"
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, transformer: decimalTransformer })
   monthlyFee: number;
 
   @Column({ nullable: true })

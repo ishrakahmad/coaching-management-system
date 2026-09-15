@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { api } from '../services/api';
+import { api, clearSession } from '../services/api';
 
 interface AuthUser {
   id: string;
@@ -46,9 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    // Revoke the refresh token on the server; clear locally even if that call fails.
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (refreshToken) api.post('/auth/logout', { refreshToken }).catch(() => {});
+    clearSession();
     setUser(null);
   }
 

@@ -10,11 +10,13 @@ import { SubjectsModule } from './subjects/subjects.module';
 import { TeachersModule } from './teachers/teachers.module';
 import { BatchesModule } from './batches/batches.module';
 import { StudentsModule } from './students/students.module';
+import { IdCounterModule } from './common/id-counter/id-counter.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig] }),
     TypeOrmModule.forRootAsync({ useFactory: databaseConfig }),
+    IdCounterModule,
     AuthModule,
     UsersModule,
     InstitutesModule,

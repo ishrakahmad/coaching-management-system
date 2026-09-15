@@ -1,4 +1,5 @@
 import { Entity, Column, OneToOne, JoinColumn, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
+import { decimalTransformer } from '../../common/transformers/decimal.transformer';
 import { BaseEntity } from '../../common/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Institute } from '../../institutes/entities/institute.entity';
@@ -26,7 +27,7 @@ export class Teacher extends BaseEntity {
   @Column({ nullable: true })
   qualification: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, transformer: decimalTransformer })
   monthlySalary: number;
 
   @ManyToMany(() => Subject)
