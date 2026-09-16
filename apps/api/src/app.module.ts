@@ -11,6 +11,10 @@ import { TeachersModule } from './teachers/teachers.module';
 import { BatchesModule } from './batches/batches.module';
 import { StudentsModule } from './students/students.module';
 import { IdCounterModule } from './common/id-counter/id-counter.module';
+import { AcademicSessionsModule } from './academic-sessions/academic-sessions.module';
+import { ClassesModule } from './classes/classes.module';
+import { GuardiansModule } from './guardians/guardians.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -20,11 +24,15 @@ import { IdCounterModule } from './common/id-counter/id-counter.module';
     AuthModule,
     UsersModule,
     InstitutesModule,
+    AcademicSessionsModule,
+    ClassesModule,
     SubjectsModule,
     TeachersModule,
     BatchesModule,
+    GuardiansModule,
+    EnrollmentsModule,
     StudentsModule,
-    // Next: AttendanceModule, FeesModule, PaymentsModule, ExamModule,
+    // Next (Phase 3): FeesModule, PaymentsModule. Then Attendance, Exam,
     // ResultsModule, HomeworkModule, ReportsModule, NotificationsModule...
   ],
 })

@@ -1,3 +1,6 @@
+// Shared API types. apps/admin-web/src/types mirrors this file until the
+// workspace package is wired into both builds.
+
 export enum Role {
   SUPER_ADMIN = 'super_admin',
   INSTITUTE_ADMIN = 'institute_admin',
@@ -33,46 +36,98 @@ export interface Institute {
   isActive: boolean;
 }
 
+export interface UserSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+}
+
+export interface AcademicSession {
+  id: string;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  isCurrent: boolean;
+  isActive: boolean;
+}
+
+export interface AcademicClass {
+  id: string;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface Subject {
   id: string;
   name: string;
-  code?: string;
+  code?: string | null;
 }
 
 export interface Teacher {
   id: string;
-  userId: string;
-  designation?: string;
-  qualification?: string;
-  monthlySalary?: number;
+  designation?: string | null;
+  qualification?: string | null;
+  monthlySalary?: number | null;
   isActive: boolean;
-  user?: { fullName: string; email: string; phone?: string };
+  user?: UserSummary;
   subjects?: Subject[];
 }
 
 export interface Batch {
   id: string;
   name: string;
-  session?: string;
   monthlyFee: number;
-  schedule?: string;
+  schedule: string | null;
   isActive: boolean;
-  leadTeacherId?: string;
-  subjects?: Subject[];
+  sessionId: string | null;
+  classId: string | null;
+  academicSession: AcademicSession | null;
+  academicClass: AcademicClass | null;
+  leadTeacher: { id: string; designation?: string | null; user?: { fullName: string } } | null;
+  subjects: Subject[];
+  activeStudentCount: number;
+}
+
+export type EnrollmentStatus = 'active' | 'left';
+
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  batchId: string;
+  enrolledAt: string;
+  leftAt: string | null;
+  status: EnrollmentStatus;
+  feeOverride: number | null;
+  batch?: Batch;
+}
+
+export type GuardianRelation = 'father' | 'mother' | 'sibling' | 'relative' | 'other';
+
+export interface Guardian {
+  id: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  occupation: string | null;
+  address: string | null;
+  userId: string | null;
+  students?: Student[];
 }
 
 export type StudentStatus = 'active' | 'inactive' | 'transferred' | 'graduated';
 
 export interface Student {
   id: string;
-  userId: string;
   studentId: string;
-  guardianName?: string;
-  guardianPhone?: string;
-  address?: string;
-  dateOfBirth?: string;
   status: StudentStatus;
   admissionDate: string;
-  user?: { fullName: string; email: string; phone?: string };
-  batches?: Batch[];
+  address: string | null;
+  guardianId: string | null;
+  guardianRelation: GuardianRelation | null;
+  guardian: Guardian | null;
+  user?: UserSummary;
+  enrollments?: Enrollment[];
 }

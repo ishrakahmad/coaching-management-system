@@ -1,21 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
-import { GraduationCap, Users, Layers, Wallet } from 'lucide-react';
+import { CalendarRange, GraduationCap, Layers, Users } from 'lucide-react';
 import { api } from '../../services/api';
+import { useBatches, useStudents, useTeachers } from '../../hooks/queries';
 import { StatCard } from '../../components/ui/StatCard';
+import type { AcademicSession } from '../../types';
 
 export default function DashboardHome() {
-  const students = useQuery({
-    queryKey: ['students'],
-    queryFn: () => api.get('/students').then((r) => r.data),
+  const students = useStudents();
+  const teachers = useTeachers();
+  const batches = useBatches();
+  const current = useQuery({
+    queryKey: ['sessions', 'current'],
+    queryFn: () => api.get<AcademicSession>('/sessions/current').then((r) => r.data),
+    retry: false, // 404 simply means no current session is set
   });
-  const teachers = useQuery({
-    queryKey: ['teachers'],
-    queryFn: () => api.get('/teachers').then((r) => r.data),
-  });
-  const batches = useQuery({
-    queryKey: ['batches'],
-    queryFn: () => api.get('/batches').then((r) => r.data),
-  });
+
+  const activeStudents = students.data?.filter((s) => s.status === 'active').length;
+  const activeBatches = batches.data?.filter((b) => b.isActive).length;
 
   return (
     <div className="p-8">
@@ -23,17 +24,17 @@ export default function DashboardHome() {
       <p className="text-sm text-ink/50 mt-1">আপনার institute-এর overview</p>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-        <StatCard label="মোট Student" value={students.data?.length ?? '–'} icon={GraduationCap} />
-        <StatCard label="মোট Teacher" value={teachers.data?.length ?? '–'} icon={Users} />
-        <StatCard label="সক্রিয় Batch" value={batches.data?.length ?? '–'} icon={Layers} />
-        <StatCard label="এই মাসের Due" value="৳ 0" icon={Wallet} accent="amber" />
+        <StatCard label="চলতি session" value={current.data?.name ?? (current.isLoading ? '–' : 'নেই')} icon={CalendarRange} accent="amber" />
+        <StatCard label="সক্রিয় student" value={activeStudents ?? '–'} icon={GraduationCap} />
+        <StatCard label="মোট teacher" value={teachers.data?.length ?? '–'} icon={Users} />
+        <StatCard label="সক্রিয় batch" value={activeBatches ?? '–'} icon={Layers} />
       </div>
 
       <div className="mt-8 rounded-xl border border-border bg-white p-6">
         <h2 className="font-display font-semibold text-ink mb-1">পরবর্তী ধাপ</h2>
         <p className="text-sm text-ink/60">
-          Attendance, Fees/Payments, Exam ও Results module এখনো যোগ করা হয়নি — Phase 2-তে যোগ হবে।
-          এখন Students, Teachers ও Batches manage করা যাবে।
+          Session, class, guardian আর batch enrollment এখন আছে। Fees ও payment Phase 3-তে যোগ হবে, আর তার আগে
+          browser থেকে data যোগ করার form আসবে।
         </p>
       </div>
     </div>

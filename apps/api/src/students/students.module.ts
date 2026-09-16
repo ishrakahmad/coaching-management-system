@@ -4,11 +4,12 @@ import { Student } from './entities/student.entity';
 import { StudentsService } from './students.service';
 import { StudentsController } from './students.controller';
 import { UsersModule } from '../users/users.module';
-import { BatchesModule } from '../batches/batches.module';
+import { GuardiansModule } from '../guardians/guardians.module';
+import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { IdCounterModule } from '../common/id-counter/id-counter.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Student]), UsersModule, BatchesModule, IdCounterModule],
+  imports: [TypeOrmModule.forFeature([Student]), UsersModule, GuardiansModule, EnrollmentsModule, IdCounterModule],
   providers: [StudentsService],
   controllers: [StudentsController],
   exports: [StudentsService],

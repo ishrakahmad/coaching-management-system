@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { BatchesService } from './batches.service';
-import { CreateBatchDto, UpdateBatchDto } from './dto/create-batch.dto';
+import { BatchQueryDto, CreateBatchDto, UpdateBatchDto } from './dto/create-batch.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,8 +17,8 @@ export class BatchesController {
   constructor(private service: BatchesService) {}
 
   @Get()
-  findAll(@CurrentUser() user: AuthUser) {
-    return this.service.findAll(user.instituteId);
+  findAll(@CurrentUser() user: AuthUser, @Query() query: BatchQueryDto) {
+    return this.service.findAll(user.instituteId, query);
   }
 
   @Get(':id')

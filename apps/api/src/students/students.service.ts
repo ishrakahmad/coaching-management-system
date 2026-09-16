@@ -1,11 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Student } from './entities/student.entity';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
-import { BatchesService } from '../batches/batches.service';
+import { GuardiansService } from '../guardians/guardians.service';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
+import { EnrollmentStatus } from '../enrollments/entities/enrollment.entity';
 import { IdCounterService } from '../common/id-counter/id-counter.service';
 import { Role } from '../users/enums/role.enum';
 import { CreateStudentDto, UpdateStudentDto } from './dto/create-student.dto';
@@ -19,16 +21,31 @@ export class StudentsService {
     @InjectDataSource()
     private dataSource: DataSource,
     private usersService: UsersService,
-    private batchesService: BatchesService,
+    private guardiansService: GuardiansService,
+    private enrollmentsService: EnrollmentsService,
     private idCounter: IdCounterService,
   ) {}
 
-  findAll(instituteId: string) {
-    return this.repo.find({ where: { instituteId }, relations: ['user', 'batches'] });
+  /** List view: each student with guardian and *active* batches only. */
+  async findAll(instituteId: string) {
+    const students = await this.repo.find({
+      where: { instituteId },
+      relations: ['user', 'guardian', 'enrollments', 'enrollments.batch'],
+      order: { studentId: 'ASC' },
+    });
+    for (const student of students) {
+      student.enrollments = student.enrollments.filter((e) => e.status === EnrollmentStatus.ACTIVE);
+    }
+    return students;
   }
 
+  /** Detail view: full enrollment history. */
   async findOne(id: string, instituteId: string) {
-    const student = await this.repo.findOne({ where: { id, instituteId }, relations: ['user', 'batches'] });
+    const student = await this.repo.findOne({
+      where: { id, instituteId },
+      relations: ['user', 'guardian', 'enrollments', 'enrollments.batch'],
+      order: { enrollments: { enrolledAt: 'DESC' } },
+    });
     if (!student) throw new NotFoundException('Student not found');
     return student;
   }
@@ -51,14 +68,24 @@ export class StudentsService {
   }
 
   async create(instituteId: string, dto: CreateStudentDto) {
+    if (dto.guardianId && dto.guardian) {
+      throw new BadRequestException('Send either guardianId or guardian, not both');
+    }
     if (await this.usersService.findByEmail(dto.email)) {
       throw new ConflictException('Email already in use');
     }
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // User + Student + ID counter change together: all or nothing.
+    // User, guardian, student, enrollments and the ID counter change together: all or nothing.
     const studentId = await this.dataSource.transaction(async (manager) => {
-      const batches = await this.batchesService.findManyForInstitute(dto.batchIds, instituteId, manager);
+      const guardian = dto.guardianId
+        ? await this.guardiansService.findOrFail(dto.guardianId, instituteId, manager).catch(() => {
+            throw new BadRequestException(`Unknown guardianId: ${dto.guardianId}`);
+          })
+        : dto.guardian
+          ? await this.guardiansService.findOrCreate(manager, instituteId, dto.guardian)
+          : null;
+
       const user = await manager.save(
         manager.create(User, {
           fullName: dto.fullName,
@@ -74,13 +101,13 @@ export class StudentsService {
           userId: user.id,
           instituteId,
           studentId: await this.generateStudentId(manager, instituteId),
-          guardianName: dto.guardianName,
-          guardianPhone: dto.guardianPhone,
+          guardianId: guardian?.id ?? null,
+          guardianRelation: guardian ? (dto.guardianRelation ?? null) : null,
           address: dto.address,
           dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
-          batches,
         }),
       );
+      await this.enrollmentsService.enrollMany(manager, instituteId, student.id, dto.batchIds);
       return student.id;
     });
     return this.findOne(studentId, instituteId);
@@ -88,20 +115,29 @@ export class StudentsService {
 
   async update(id: string, instituteId: string, dto: UpdateStudentDto) {
     const student = await this.findOne(id, instituteId);
-    const { fullName, phone, batchIds, dateOfBirth, ...profile } = dto;
+    const { fullName, phone, dateOfBirth, guardianId, ...profile } = dto;
 
     await this.dataSource.transaction(async (manager) => {
       const userChanges = pickDefined({ fullName, phone });
       if (Object.keys(userChanges).length) {
         await manager.update(User, { id: student.userId }, userChanges);
       }
-      Object.assign(student, pickDefined(profile));
-      if (dateOfBirth !== undefined) student.dateOfBirth = new Date(dateOfBirth);
-      if (batchIds) {
-        student.batches = await this.batchesService.findManyForInstitute(batchIds, instituteId, manager);
+
+      const studentChanges: Partial<Student> = pickDefined({ ...profile });
+      if (dateOfBirth !== undefined) studentChanges.dateOfBirth = new Date(dateOfBirth);
+      if (guardianId !== undefined) {
+        if (guardianId) {
+          await this.guardiansService.findOrFail(guardianId, instituteId, manager).catch(() => {
+            throw new BadRequestException(`Unknown guardianId: ${guardianId}`);
+          });
+        } else {
+          studentChanges.guardianRelation = null; // unlinking also clears the relation
+        }
+        studentChanges.guardianId = guardianId;
       }
-      const { user: _user, ...studentWithoutUser } = student;
-      await manager.save(Student, studentWithoutUser);
+      if (Object.keys(studentChanges).length) {
+        await manager.update(Student, { id }, studentChanges);
+      }
     });
     return this.findOne(id, instituteId);
   }
@@ -109,6 +145,7 @@ export class StudentsService {
   async remove(id: string, instituteId: string) {
     const student = await this.findOne(id, instituteId);
     await this.dataSource.transaction(async (manager) => {
+      await this.enrollmentsService.closeAllForStudent(manager, student.id);
       await manager.softDelete(Student, { id: student.id });
       await manager.softDelete(User, { id: student.userId });
     });

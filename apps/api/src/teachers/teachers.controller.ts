@@ -8,6 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthUser } from '../auth/interfaces/auth-user.interface';
 import { Role } from '../users/enums/role.enum';
+import { FINANCE_VIEW_ROLES, MANAGE_ROLES } from '../common/constants/roles';
 
 @ApiTags('teachers')
 @ApiBearerAuth()
@@ -16,23 +17,26 @@ import { Role } from '../users/enums/role.enum';
 export class TeachersController {
   constructor(private service: TeachersService) {}
 
+  // Includes salary: admin, manager and accountant only.
+  @Roles(...FINANCE_VIEW_ROLES)
   @Get()
   findAll(@CurrentUser() user: AuthUser) {
     return this.service.findAll(user.instituteId);
   }
 
+  @Roles(...FINANCE_VIEW_ROLES)
   @Get(':id')
   findOne(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id, user.instituteId);
   }
 
-  @Roles(Role.INSTITUTE_ADMIN, Role.MANAGER)
+  @Roles(...MANAGE_ROLES)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateTeacherDto) {
     return this.service.create(user.instituteId, dto);
   }
 
-  @Roles(Role.INSTITUTE_ADMIN, Role.MANAGER)
+  @Roles(...MANAGE_ROLES)
   @Patch(':id')
   update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateTeacherDto) {
     return this.service.update(id, user.instituteId, dto);

@@ -1,14 +1,23 @@
-import { Entity, Column, OneToOne, JoinColumn, ManyToOne, ManyToMany, JoinTable, Index } from 'typeorm';
+import { Entity, Column, OneToOne, JoinColumn, ManyToOne, OneToMany, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Institute } from '../../institutes/entities/institute.entity';
-import { Batch } from '../../batches/entities/batch.entity';
+import { Guardian } from '../../guardians/entities/guardian.entity';
+import { Enrollment } from '../../enrollments/entities/enrollment.entity';
 
 export enum StudentStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   TRANSFERRED = 'transferred',
   GRADUATED = 'graduated',
+}
+
+export enum GuardianRelation {
+  FATHER = 'father',
+  MOTHER = 'mother',
+  SIBLING = 'sibling',
+  RELATIVE = 'relative',
+  OTHER = 'other',
 }
 
 @Entity('students')
@@ -32,11 +41,16 @@ export class Student extends BaseEntity {
   @Column()
   studentId: string; // human-readable admission number, e.g. "STD-2026-0001"
 
-  @Column({ nullable: true })
-  guardianName: string;
+  @ManyToOne(() => Guardian, (guardian) => guardian.students, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'guardian_id' })
+  guardian: Guardian | null;
 
-  @Column({ nullable: true })
-  guardianPhone: string;
+  @Index()
+  @Column({ name: 'guardian_id', nullable: true })
+  guardianId: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  guardianRelation: GuardianRelation | null;
 
   @Column({ nullable: true })
   address: string;
@@ -50,7 +64,6 @@ export class Student extends BaseEntity {
   @Column({ type: 'date', default: () => 'CURRENT_DATE' })
   admissionDate: Date;
 
-  @ManyToMany(() => Batch)
-  @JoinTable({ name: 'student_batches' })
-  batches: Batch[];
+  @OneToMany(() => Enrollment, (enrollment) => enrollment.student)
+  enrollments: Enrollment[];
 }

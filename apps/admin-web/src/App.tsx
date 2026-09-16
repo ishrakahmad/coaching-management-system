@@ -8,6 +8,9 @@ import DashboardHome from './pages/dashboard/DashboardHome';
 import StudentsPage from './pages/students/StudentsPage';
 import TeachersPage from './pages/teachers/TeachersPage';
 import BatchesPage from './pages/batches/BatchesPage';
+import GuardiansPage from './pages/guardians/GuardiansPage';
+import ClassesPage from './pages/classes/ClassesPage';
+import SessionsPage from './pages/sessions/SessionsPage';
 
 const queryClient = new QueryClient();
 
@@ -23,7 +26,10 @@ export default function App() {
                 <Route index element={<DashboardHome />} />
                 <Route path="students" element={<StudentsPage />} />
                 <Route path="teachers" element={<TeachersPage />} />
+                <Route path="guardians" element={<GuardiansPage />} />
                 <Route path="batches" element={<BatchesPage />} />
+                <Route path="classes" element={<ClassesPage />} />
+                <Route path="sessions" element={<SessionsPage />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { registerAs } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
@@ -11,7 +12,13 @@ export default registerAs(
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_DATABASE || 'coaching_management',
     autoLoadEntities: true,
-    synchronize: process.env.NODE_ENV === 'development',
-    logging: process.env.NODE_ENV === 'development',
+    // Schema changes now go through migrations (src/database/migrations).
+    // synchronize would silently drop columns that are renamed or removed.
+    synchronize: false,
+    migrations: [join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
+    // Pending migrations run automatically when the API starts.
+    // Set DB_MIGRATIONS_RUN=false to run them manually with `npm run migration:run`.
+    migrationsRun: process.env.DB_MIGRATIONS_RUN !== 'false',
+    logging: process.env.DB_LOGGING === 'true' ? true : ['error', 'migration'],
   }),
 );

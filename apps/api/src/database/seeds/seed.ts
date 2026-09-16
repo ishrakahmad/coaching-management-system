@@ -3,6 +3,8 @@ import { AppDataSource } from '../data-source';
 import { Institute } from '../../institutes/entities/institute.entity';
 import { User } from '../../users/entities/user.entity';
 import { Role } from '../../users/enums/role.enum';
+import { AcademicSession } from '../../academic-sessions/entities/academic-session.entity';
+import { AcademicClass } from '../../classes/entities/academic-class.entity';
 
 async function seed() {
   await AppDataSource.initialize();
@@ -37,6 +39,29 @@ async function seed() {
       }),
     );
     console.log('Created admin user:', admin.email, '(password: Admin@123)');
+  }
+
+  // Demo academic structure — only added when the institute has none yet.
+  const sessionRepo = AppDataSource.getRepository(AcademicSession);
+  if (!(await sessionRepo.exists({ where: { instituteId: institute.id } }))) {
+    const year = new Date().getFullYear();
+    await sessionRepo.save(
+      sessionRepo.create({
+        name: String(year),
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+        isCurrent: true,
+        instituteId: institute.id,
+      }),
+    );
+    console.log(`Created current session: ${year}`);
+  }
+
+  const classRepo = AppDataSource.getRepository(AcademicClass);
+  if (!(await classRepo.exists({ where: { instituteId: institute.id } }))) {
+    const names = ['Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'HSC 1st Year', 'HSC 2nd Year'];
+    await classRepo.save(names.map((name, i) => classRepo.create({ name, sortOrder: (i + 1) * 10, instituteId: institute.id })));
+    console.log(`Created ${names.length} classes`);
   }
 
   await AppDataSource.destroy();

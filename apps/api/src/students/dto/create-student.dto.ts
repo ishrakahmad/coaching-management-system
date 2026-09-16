@@ -1,8 +1,11 @@
 import {
   IsArray, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength,
+  ValidateIf, ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
-import { StudentStatus } from '../entities/student.entity';
+import { GuardianRelation, StudentStatus } from '../entities/student.entity';
+import { CreateGuardianDto } from '../../guardians/dto/guardian.dto';
 
 export class CreateStudentDto {
   @ApiProperty()
@@ -26,17 +29,25 @@ export class CreateStudentDto {
   @MaxLength(20)
   phone?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Link an existing guardian. Use either guardianId or guardian, not both.' })
   @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  guardianName?: string;
+  @IsUUID()
+  guardianId?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    required: false,
+    type: CreateGuardianDto,
+    description: 'New guardian details. If a guardian with the same phone already exists (a sibling), that record is reused.',
+  })
   @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  guardianPhone?: string;
+  @ValidateNested()
+  @Type(() => CreateGuardianDto)
+  guardian?: CreateGuardianDto;
+
+  @ApiProperty({ required: false, enum: GuardianRelation })
+  @IsOptional()
+  @IsEnum(GuardianRelation)
+  guardianRelation?: GuardianRelation;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -49,15 +60,22 @@ export class CreateStudentDto {
   @IsDateString()
   dateOfBirth?: string;
 
-  @ApiProperty({ required: false, type: [String] })
+  @ApiProperty({ required: false, type: [String], description: 'Batches to enroll in on admission (enrolled today)' })
   @IsOptional()
   @IsArray()
   @IsUUID(undefined, { each: true })
   batchIds?: string[];
 }
 
-// Email and password changes get their own flows later (they affect login).
-export class UpdateStudentDto extends PartialType(OmitType(CreateStudentDto, ['email', 'password'] as const)) {
+// Batch changes go through /students/:id/enrollments; email/password get their own flows later.
+export class UpdateStudentDto extends PartialType(
+  OmitType(CreateStudentDto, ['email', 'password', 'guardian', 'guardianId', 'batchIds'] as const),
+) {
+  @ApiProperty({ required: false, nullable: true, description: 'Send null to unlink the guardian' })
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsUUID()
+  guardianId?: string | null;
+
   @ApiProperty({ required: false, enum: StudentStatus })
   @IsOptional()
   @IsEnum(StudentStatus)
