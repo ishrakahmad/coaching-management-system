@@ -1,4 +1,4 @@
-# Coaching Management System — Phase 2
+# Coaching Management System — Phase 3
 
 Multi-institute-ready Coaching Management System. Phase 1 scope: **Auth (JWT + Role-based)**,
 **Institutes**, **Users**, **Teachers**, **Subjects**, **Batches**, **Students**.
@@ -60,6 +60,8 @@ npm run seed
 - Admin login: `admin@democoaching.com` / `Admin@123`
 - চলতি বছরের session আর Class 6 থেকে HSC 2nd Year পর্যন্ত class
 
+এরপর admin panel-এ Subjects, Batches যোগ করে Students page থেকে "নতুন ভর্তি" দিয়ে শুরু করুন।
+
 ### 3. Frontend (Admin Panel)
 
 ```bash
@@ -113,6 +115,55 @@ Subjects, Teachers, Batches, Students — প্রতিটাতে `GET/PATCH
 - **Auto-generated Student ID**: `STD-<year>-<seq>` ফরম্যাটে, প্রতিটা institute-এর জন্য আলাদাভাবে।
 - **Role-based guards**: `@Roles()` decorator + `RolesGuard` দিয়ে endpoint-level access control।
 
+## Phase 3 — Fees, payments ও admin panel form
+
+### Admin panel (Phase 2.5)
+- সব page-এ browser থেকে যোগ, edit আর মোছার form: Students (নতুন ভর্তি), Guardians, Teachers, Batches, Classes, Subjects, Sessions, Staff।
+- **Student page** (`/dashboard/students/:id`): তথ্য, guardian বদলানো, batch-এ ভর্তি/ছেড়ে দেওয়া/আলাদা fee, fee-র হিসাব (ছাড়, মওকুফ, একবারের fee), payment ও রসিদ।
+- **নতুন ভর্তি:** এক form-এ student, guardian (একই phone-এর guardian থাকলে আগেই দেখায়), batch, ভর্তি fee, আর এই মাসের fee সঙ্গে সঙ্গে ধরা।
+- Role অনুযায়ী মেনু ও button লুকানো থাকে (API একই নিয়ম আলাদাভাবে প্রয়োগ করে)।
+
+### Fees
+- **মাসিক fee:** প্রতি রাত ১২:১০-এ (বাংলাদেশ সময়) চলতি মাসের fee তৈরি হয়। কাউকে একই মাসে দুবার ধরা হয় না, তাই মাঝ-মাসে ভর্তি হলেও পরের রাতে ধরা পড়ে। অঙ্ক = student-এর আলাদা fee, না থাকলে batch-এর fee। শুধু সক্রিয় student ও সক্রিয় batch।
+- **শেষ তারিখ:** মাসের ১০ তারিখ, তবে ভর্তির আগে কখনো নয় (২০ তারিখে ভর্তি হলে শেষ তারিখ ২০ তারিখ)।
+- Fees page থেকে আগের ২ মাস বা পরের মাসের fee হাতে তৈরি করা যায়।
+- একবারের fee (ভর্তি, পরীক্ষা, অন্যান্য), ছাড়/বৃত্তি, মওকুফ (কারণসহ)। মাসিক fee মোছা যায় না, মওকুফ করতে হয়।
+- Batch ছাড়লে পরের মাসগুলোর না-দেওয়া fee নিজে থেকে মওকুফ হয়; ছাড়ার মাসের fee থাকে।
+
+### Payments
+- Cash, bKash, Nagad, Rocket, Bank, Card; transaction reference। আংশিক payment চলে, বকেয়ার বেশি নেওয়া যায় না।
+- Fee বাছাই না করলে পুরোনো বকেয়া আগে শোধ হয়; একই শেষ তারিখে মাসিক fee আগে।
+- রসিদ নম্বর প্রতি institute প্রতি বছরে ধারাবাহিক (`RCP-2026-00001`)। রসিদ page থেকে print বা "Save as PDF" (বাংলা ঠিকভাবে আসে)।
+- ভুল payment মোছা যায় না, **বাতিল (void)** হয় কারণসহ: fee আবার বকেয়া হয়, রসিদ নম্বর "VOID" হিসেবে থাকে।
+- দুজন একসাথে একই student-এর টাকা নিলেও double payment হয় না (database lock)। সব হিসাব পয়সায় (integer), তাই দশমিকের ভুল হয় না।
+
+### Staff ও role
+| কাজ | Admin | Manager | Accountant | Teacher |
+|-----|:-----:|:-------:|:----------:|:-------:|
+| Student/guardian দেখা | ✓ | ✓ | ✓ | ✓ |
+| ভর্তি, batch, guardian বদলানো | ✓ | ✓ | | |
+| Fee, বকেয়া, payment নেওয়া | ✓ | ✓ | ✓ | |
+| Payment বাতিল | ✓ | | ✓ | |
+| Staff account (`/staff`) | ✓ | | | |
+
+### Phase 3 endpoints
+| Method | Endpoint | বর্ণনা |
+|--------|----------|--------|
+| POST | `/fees/generate-monthly` | `{ period: "2026-09", batchId? }` মাসিক fee তৈরি |
+| GET | `/fees/dues?search=&batchId=&overdueOnly=` | কার কাছে কত বকেয়া |
+| GET | `/fees/summary?period=` | মাসের জমা, ধরা, মোট বকেয়া, মাধ্যম অনুযায়ী |
+| GET/POST | `/fees` | Fee তালিকা / একবারের fee |
+| PATCH/DELETE | `/fees/:id` | অঙ্ক, ছাড়, শেষ তারিখ / ভুল একবারের fee মোছা |
+| POST | `/fees/:id/waive` | মওকুফ (কারণ লাগবে) |
+| GET | `/students/:id/fees` | Student-এর সব fee, payment আর মোট হিসাব |
+| GET/POST | `/payments` | Payment তালিকা (তারিখ, মাধ্যম) / টাকা জমা |
+| GET | `/payments/:id` | রসিদের তথ্য |
+| POST | `/payments/:id/void` | Payment বাতিল (কারণ লাগবে) |
+| GET/POST/PATCH | `/staff` | Manager, accountant, employee login |
+
+> **Phase 2 database থেকে upgrade:** API চালু করলেই `Phase3Fees` migration চলবে; শুধু নতুন table যোগ হয়, আগের data বদলায় না।
+> পরের রাতে (বা Fees page-এর "মাসিক fee তৈরি" দিয়ে এখনই) সব সক্রিয় ভর্তির চলতি মাসের fee তৈরি হবে। প্রথমবার চালানোর আগে batch-এর মাসিক fee ঠিক আছে কিনা দেখে নিন।
+
 ## Phase 2 — Academic structure
 
 - **Session** (`/sessions`): শিক্ষাবর্ষ। একসাথে একটাই চলতি session থাকে, আর সেটা database নিজেই নিশ্চিত করে।
@@ -157,7 +208,9 @@ Entity বদলালে অবশ্যই migration generate করুন, �
 
 ## Next Phases (এখনো বাকি)
 
-- Admin panel-এ create/edit form (student admission, guardian, batch, enrollment)
+- অগ্রিম টাকা (বকেয়ার বেশি জমা) আর মাঝ-মাসে ভর্তির জন্য আংশিক মাসের fee
+- Payment gateway (bKash/SSLCommerz), SMS-এ বকেয়ার reminder
+
 - Phone দিয়ে student/guardian login (এখনো email লাগে)
 - Groups (Science/Commerce/Arts), multi-branch
 

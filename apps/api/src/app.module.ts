@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import databaseConfig from './config/database.config';
 
 import { AuthModule } from './auth/auth.module';
@@ -15,11 +16,14 @@ import { AcademicSessionsModule } from './academic-sessions/academic-sessions.mo
 import { ClassesModule } from './classes/classes.module';
 import { GuardiansModule } from './guardians/guardians.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
+import { FeesModule } from './fees/fees.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [databaseConfig] }),
     TypeOrmModule.forRootAsync({ useFactory: databaseConfig }),
+    ScheduleModule.forRoot(),
     IdCounterModule,
     AuthModule,
     UsersModule,
@@ -32,7 +36,9 @@ import { EnrollmentsModule } from './enrollments/enrollments.module';
     GuardiansModule,
     EnrollmentsModule,
     StudentsModule,
-    // Next (Phase 3): FeesModule, PaymentsModule. Then Attendance, Exam,
+    FeesModule,
+    PaymentsModule,
+    // Next: Attendance, Exam,
     // ResultsModule, HomeworkModule, ReportsModule, NotificationsModule...
   ],
 })

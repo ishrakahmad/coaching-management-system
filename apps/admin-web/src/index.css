@@ -10,3 +10,29 @@ body {
   background-color: #0f3d3e;
   color: #f7f5f0;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Slide only: the panel is opaque from the first frame, so the page behind never shows through it. */
+@keyframes drawer-in {
+  from { transform: translateX(24px); }
+  to { transform: translateX(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-drawer-in { animation: drawer-in 180ms ease-out; }
+.animate-fade-in { animation: fade-in 150ms ease-out; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}

@@ -29,7 +29,7 @@ export class EnrollmentsController {
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body() dto: CreateEnrollmentDto,
   ) {
-    return this.service.enroll(studentId, user.instituteId, dto);
+    return this.service.enroll(studentId, user.instituteId, dto, user.userId);
   }
 
   @Roles(...STAFF_ROLES)

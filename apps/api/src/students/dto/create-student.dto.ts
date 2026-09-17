@@ -1,5 +1,5 @@
 import {
-  IsArray, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength,
+  IsArray, IsBoolean, IsDateString, IsNumber, Min, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength,
   ValidateIf, ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -65,11 +65,22 @@ export class CreateStudentDto {
   @IsArray()
   @IsUUID(undefined, { each: true })
   batchIds?: string[];
+
+  @ApiProperty({ required: false, example: 500, description: 'One-off admission fee, added as a due right away' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  admissionFee?: number;
+
+  @ApiProperty({ required: false, description: "Bill this month's batch fees now instead of waiting for the daily run" })
+  @IsOptional()
+  @IsBoolean()
+  billCurrentMonth?: boolean;
 }
 
 // Batch changes go through /students/:id/enrollments; email/password get their own flows later.
 export class UpdateStudentDto extends PartialType(
-  OmitType(CreateStudentDto, ['email', 'password', 'guardian', 'guardianId', 'batchIds'] as const),
+  OmitType(CreateStudentDto, ['email', 'password', 'guardian', 'guardianId', 'batchIds', 'admissionFee', 'billCurrentMonth'] as const),
 ) {
   @ApiProperty({ required: false, nullable: true, description: 'Send null to unlink the guardian' })
   @ValidateIf((_, v) => v !== null && v !== undefined)

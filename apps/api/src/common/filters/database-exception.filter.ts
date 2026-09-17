@@ -7,6 +7,9 @@ const PG_ERRORS: Record<string, { status: number; message: string }> = {
   '23505': { status: HttpStatus.CONFLICT, message: 'A record with this value already exists' },
   '23503': { status: HttpStatus.BAD_REQUEST, message: 'Referenced record does not exist' },
   '22P02': { status: HttpStatus.BAD_REQUEST, message: 'Invalid identifier format' },
+  '23514': { status: HttpStatus.BAD_REQUEST, message: 'Amounts are not valid (for example, a discount larger than the fee)' },
+  '40001': { status: HttpStatus.CONFLICT, message: 'Someone else changed this at the same time. Please try again.' },
+  '40P01': { status: HttpStatus.CONFLICT, message: 'Someone else changed this at the same time. Please try again.' },
 };
 
 @Catch(QueryFailedError)

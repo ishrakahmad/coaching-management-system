@@ -33,7 +33,7 @@ export class StudentsController {
   @Roles(...MANAGE_ROLES)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateStudentDto) {
-    return this.service.create(user.instituteId, dto);
+    return this.service.create(user.instituteId, dto, user.userId);
   }
 
   @Roles(...MANAGE_ROLES)

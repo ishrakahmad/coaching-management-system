@@ -1,4 +1,4 @@
-import { IsDateString, IsNumber, IsOptional, IsUUID, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsDateString, IsNumber, IsOptional, IsUUID, Min, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateEnrollmentDto {
@@ -16,6 +16,11 @@ export class CreateEnrollmentDto {
   @IsNumber()
   @Min(0)
   feeOverride?: number | null;
+
+  @ApiProperty({ required: false, description: "Bill the current month's fee right away instead of waiting for the daily run" })
+  @IsOptional()
+  @IsBoolean()
+  billCurrentMonth?: boolean;
 }
 
 export class UpdateEnrollmentDto {

@@ -12,6 +12,10 @@ import { IdCounterService } from '../common/id-counter/id-counter.service';
 import { Role } from '../users/enums/role.enum';
 import { CreateStudentDto, UpdateStudentDto } from './dto/create-student.dto';
 import { pickDefined } from '../common/utils/pick-defined';
+import { FeesService } from '../fees/fees.service';
+import { FeeStatus, FeeType, StudentFee } from '../fees/entities/student-fee.entity';
+import { currentPeriod } from '../common/utils/period';
+import { todayInDhaka } from '../common/utils/dates';
 
 @Injectable()
 export class StudentsService {
@@ -24,6 +28,7 @@ export class StudentsService {
     private guardiansService: GuardiansService,
     private enrollmentsService: EnrollmentsService,
     private idCounter: IdCounterService,
+    private feesService: FeesService,
   ) {}
 
   /** List view: each student with guardian and *active* batches only. */
@@ -67,7 +72,7 @@ export class StudentsService {
     return `${prefix}${String(seq).padStart(4, '0')}`;
   }
 
-  async create(instituteId: string, dto: CreateStudentDto) {
+  async create(instituteId: string, dto: CreateStudentDto, userId?: string) {
     if (dto.guardianId && dto.guardian) {
       throw new BadRequestException('Send either guardianId or guardian, not both');
     }
@@ -108,6 +113,21 @@ export class StudentsService {
         }),
       );
       await this.enrollmentsService.enrollMany(manager, instituteId, student.id, dto.batchIds);
+      if (dto.admissionFee) {
+        await manager.insert(StudentFee, {
+          instituteId,
+          studentId: student.id,
+          type: FeeType.ADMISSION,
+          title: 'Admission fee',
+          amount: dto.admissionFee,
+          dueDate: todayInDhaka(),
+          status: FeeStatus.UNPAID,
+          createdById: userId ?? null,
+        });
+      }
+      if (dto.billCurrentMonth && dto.batchIds?.length) {
+        await this.feesService.generateMonthly(instituteId, currentPeriod(), { studentId: student.id, userId, manager });
+      }
       return student.id;
     });
     return this.findOne(studentId, instituteId);

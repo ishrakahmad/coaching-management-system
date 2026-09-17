@@ -2,10 +2,13 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Enrollment, EnrollmentStatus } from './entities/enrollment.entity';
+import { FeeStatus, FeeType, StudentFee } from '../fees/entities/student-fee.entity';
 import { Batch } from '../batches/entities/batch.entity';
 import { Student } from '../students/entities/student.entity';
 import { CreateEnrollmentDto, LeaveEnrollmentDto, UpdateEnrollmentDto } from './dto/enrollment.dto';
 import { assertDateOrder, todayInDhaka } from '../common/utils/dates';
+import { FeesService } from '../fees/fees.service';
+import { currentPeriod } from '../common/utils/period';
 import { assertAllFound } from '../common/utils/assert-all-found';
 import { pickDefined } from '../common/utils/pick-defined';
 
@@ -16,6 +19,7 @@ export class EnrollmentsService {
     private repo: Repository<Enrollment>,
     @InjectDataSource()
     private dataSource: DataSource,
+    private feesService: FeesService,
   ) {}
 
   async findForStudent(studentId: string, instituteId: string) {
@@ -38,10 +42,13 @@ export class EnrollmentsService {
     });
   }
 
-  async enroll(studentId: string, instituteId: string, dto: CreateEnrollmentDto) {
+  async enroll(studentId: string, instituteId: string, dto: CreateEnrollmentDto, userId?: string) {
     const id = await this.dataSource.transaction(async (manager) => {
       await this.assertStudent(studentId, instituteId, manager);
       const [enrollment] = await this.enrollMany(manager, instituteId, studentId, [dto.batchId], dto);
+      if (dto.billCurrentMonth) {
+        await this.feesService.generateMonthly(instituteId, currentPeriod(), { batchId: dto.batchId, studentId, userId, manager });
+      }
       return enrollment.id;
     });
     return this.findOne(id, instituteId);
@@ -101,6 +108,10 @@ export class EnrollmentsService {
     return this.findOne(id, instituteId);
   }
 
+  /**
+   * Ends an enrollment. Unpaid monthly fees for months *after* the leaving month
+   * (e.g. generated in advance) are waived automatically; the leaving month itself stays billed.
+   */
   async leave(id: string, instituteId: string, dto: LeaveEnrollmentDto) {
     const enrollment = await this.findOne(id, instituteId);
     if (enrollment.status !== EnrollmentStatus.ACTIVE) {
@@ -108,18 +119,35 @@ export class EnrollmentsService {
     }
     const leftAt = dto.leftAt ?? todayInDhaka();
     assertDateOrder(enrollment.enrolledAt, leftAt, 'Enrollment');
-    await this.repo.update({ id }, { status: EnrollmentStatus.LEFT, leftAt });
-    return this.findOne(id, instituteId);
+    const waivedFeeCount = await this.dataSource.transaction(async (manager) => {
+      await manager.update(Enrollment, { id }, { status: EnrollmentStatus.LEFT, leftAt });
+      return this.waiveFeesAfter(manager, [id], leftAt);
+    });
+    return Object.assign(await this.findOne(id, instituteId), { waivedFeeCount });
   }
 
-  /** When a student is deleted, their active enrollments end on that day. */
-  closeAllForStudent(manager: EntityManager, studentId: string) {
-    return manager
+  private async waiveFeesAfter(manager: EntityManager, enrollmentIds: string[], leftAt: string) {
+    if (!enrollmentIds.length) return 0;
+    const result = await manager
       .createQueryBuilder()
-      .update(Enrollment)
-      .set({ status: EnrollmentStatus.LEFT, leftAt: () => `GREATEST(CURRENT_DATE, "enrolledAt")` })
-      .where('student_id = :studentId AND status = :status', { studentId, status: EnrollmentStatus.ACTIVE })
+      .update(StudentFee)
+      .set({ status: FeeStatus.WAIVED, waivedReason: `Left the batch on ${leftAt}` })
+      .where('enrollment_id IN (:...enrollmentIds)', { enrollmentIds })
+      .andWhere('type = :monthly AND status = :unpaid AND "paidAmount" = 0', { monthly: FeeType.MONTHLY, unpaid: FeeStatus.UNPAID })
+      .andWhere('period > :leftMonth', { leftMonth: leftAt.slice(0, 7) })
       .execute();
+    return result.affected ?? 0;
+  }
+
+  /** When a student is deleted, their active enrollments end today and later unpaid monthly fees are waived. */
+  async closeAllForStudent(manager: EntityManager, studentId: string) {
+    const today = todayInDhaka();
+    const active = await manager.find(Enrollment, { where: { studentId, status: EnrollmentStatus.ACTIVE } });
+    for (const enrollment of active) {
+      const leftAt = enrollment.enrolledAt > today ? enrollment.enrolledAt : today;
+      await manager.update(Enrollment, { id: enrollment.id }, { status: EnrollmentStatus.LEFT, leftAt });
+      await this.waiveFeesAfter(manager, [enrollment.id], leftAt);
+    }
   }
 
   private async assertStudent(studentId: string, instituteId: string, manager?: EntityManager) {

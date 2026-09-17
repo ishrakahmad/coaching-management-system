@@ -6,3 +6,7 @@ export const STAFF_ROLES = [Role.INSTITUTE_ADMIN, Role.MANAGER, Role.ACCOUNTANT,
 export const MANAGE_ROLES = [Role.INSTITUTE_ADMIN, Role.MANAGER];
 // Staff who may see salary figures.
 export const FINANCE_VIEW_ROLES = [Role.INSTITUTE_ADMIN, Role.MANAGER, Role.ACCOUNTANT];
+// Staff who handle money: see dues, take payments, generate and adjust fees.
+export const FINANCE_ROLES = [Role.INSTITUTE_ADMIN, Role.MANAGER, Role.ACCOUNTANT];
+// Voiding a payment reverses money already received.
+export const VOID_PAYMENT_ROLES = [Role.INSTITUTE_ADMIN, Role.ACCOUNTANT];
